@@ -105,6 +105,7 @@ let TransmuxingWorker = function (self) {
         self.postMessage(obj, [initSegment.data]);  // data: ArrayBuffer
     }
 
+    //接收到媒体片段
     function onMediaSegment(type, mediaSegment) {
         let obj = {
             msg: TransmuxingEvents.MEDIA_SEGMENT,

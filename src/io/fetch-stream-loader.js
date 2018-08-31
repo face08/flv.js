@@ -36,7 +36,7 @@ class FetchStreamLoader extends BaseLoader {
             // Fixed in Jan 10, 2017. Build 15048+ removed from blacklist.
             let isWorkWellEdge = Browser.msedge && Browser.version.minor >= 15048;
             let browserNotBlacklisted = Browser.msedge ? isWorkWellEdge : true;
-            return (self.fetch && self.ReadableStream && browserNotBlacklisted);
+            return (self.fetch && self.ReadableStream && browserNotBlacklisted);//self == window
         } catch (e) {
             return false;
         }
@@ -62,6 +62,7 @@ class FetchStreamLoader extends BaseLoader {
         super.destroy();
     }
 
+    //请求flv文件
     open(dataSource, range) {
         this._dataSource = dataSource;
         this._range = range;
@@ -111,6 +112,7 @@ class FetchStreamLoader extends BaseLoader {
         }
 
         this._status = LoaderStatus.kConnecting;
+        //window
         self.fetch(seekConfig.url, params).then((res) => {
             if (this._requestAbort) {
                 this._requestAbort = false;
@@ -158,8 +160,10 @@ class FetchStreamLoader extends BaseLoader {
         this._requestAbort = true;
     }
 
+    //持续接受数据
     _pump(reader) {  // ReadableStreamReader
         return reader.read().then((result) => {
+            // console.log('接受视频流');
             if (result.done) {
                 // First check received length
                 if (this._contentLength !== null && this._receivedLength < this._contentLength) {
@@ -192,11 +196,16 @@ class FetchStreamLoader extends BaseLoader {
                 let byteStart = this._range.from + this._receivedLength;
                 this._receivedLength += chunk.byteLength;
 
+                const hexy = require('hexy');
+                let hexlog = hexy.hexy(Array.from(result.value));
+                // console.log(hexlog);
+
+                //接受数据后回调
                 if (this._onDataArrival) {
                     this._onDataArrival(chunk, byteStart, this._receivedLength);
                 }
 
-                this._pump(reader);
+                this._pump(reader);//递归
             }
         }).catch((e) => {
             if (e.code === 11 && Browser.msedge) {  // InvalidStateError on Microsoft Edge

@@ -24,7 +24,7 @@ import {SampleInfo, MediaSegmentInfo, MediaSegmentInfoList} from '../core/media-
 import {IllegalStateException} from '../utils/exception.js';
 
 
-// Fragmented mp4 remuxer
+//MP4碎片混合器： Fragmented mp4 remuxer
 class MP4Remuxer {
 
     constructor(config) {
@@ -129,6 +129,7 @@ class MP4Remuxer {
         this._audioSegmentInfoList.clear();
     }
 
+    //转化格式
     remux(audioTrack, videoTrack) {
         if (!this._onMediaSegment) {
             throw new IllegalStateException('MP4Remuxer: onMediaSegment callback must be specificed!');
@@ -230,6 +231,7 @@ class MP4Remuxer {
         this._remuxAudio(audioTrack, true);
     }
 
+    //重新组装音频
     _remuxAudio(audioTrack, force) {
         if (this._audioMeta == null) {
             return;
@@ -562,7 +564,7 @@ class MP4Remuxer {
 
         let lastSample = null;
 
-        // Pop the lastSample and waiting for stash
+        // 取出最后一段采样：Pop the lastSample and waiting for stash
         if (samples.length > 1) {
             lastSample = samples.pop();
             mdatBytes -= lastSample.length;
@@ -605,6 +607,7 @@ class MP4Remuxer {
             }
         }
 
+        //准备数据结构
         let info = new MediaSegmentInfo();
         let mp4Samples = [];
 
@@ -662,6 +665,8 @@ class MP4Remuxer {
                 }
             });
         }
+
+        //准备写入到mp4的box里
 
         // allocate mdatbox
         mdatbox = new Uint8Array(mdatBytes);

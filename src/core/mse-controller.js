@@ -23,7 +23,7 @@ import MSEEvents from './mse-events.js';
 import {SampleInfo, IDRSampleList} from './media-segment-info.js';
 import {IllegalStateException} from '../utils/exception.js';
 
-// Media Source Extensions controller
+// 新的API功能MSE：Media Source Extensions controller
 class MSEController {
 
     constructor(config) {
@@ -45,7 +45,7 @@ class MSEController {
             onSourceBufferUpdateEnd: this._onSourceBufferUpdateEnd.bind(this)
         };
 
-        this._mediaSource = null;
+        this._mediaSource = null;//MediaSource
         this._mediaSourceObjectURL = null;
         this._mediaElement = null;
 
@@ -96,6 +96,7 @@ class MSEController {
         this._emitter.removeListener(event, listener);
     }
 
+    //附加媒体元素：video
     attachMediaElement(mediaElement) {
         if (this._mediaSource) {
             throw new IllegalStateException('MediaSource has been attached to an HTMLMediaElement!');
@@ -110,6 +111,7 @@ class MSEController {
         mediaElement.src = this._mediaSourceObjectURL;
     }
 
+    //移除媒体元素
     detachMediaElement() {
         if (this._mediaSource) {
             let ms = this._mediaSource;
@@ -190,6 +192,7 @@ class MSEController {
             if (!this._mimeTypes[is.type]) {  // empty, first chance create sourcebuffer
                 firstInitSegment = true;
                 try {
+                    //添加视频buffer
                     let sb = this._sourceBuffers[is.type] = this._mediaSource.addSourceBuffer(mimeType);
                     sb.addEventListener('error', this.e.onSourceBufferError);
                     sb.addEventListener('updateend', this.e.onSourceBufferUpdateEnd);
@@ -222,9 +225,10 @@ class MSEController {
         }
     }
 
+    //接受到媒体片段
     appendMediaSegment(mediaSegment) {
         let ms = mediaSegment;
-        this._pendingSegments[ms.type].push(ms);
+        this._pendingSegments[ms.type].push(ms);//放入容器
 
         if (this._config.autoCleanupSourceBuffer && this._needCleanupSourceBuffer()) {
             this._doCleanupSourceBuffer();
@@ -294,6 +298,7 @@ class MSEController {
         }
     }
 
+    //结束视频流
     endOfStream() {
         let ms = this._mediaSource;
         let sb = this._sourceBuffers;
@@ -411,6 +416,7 @@ class MSEController {
         }
     }
 
+    //真实输出到video标签
     _doAppendSegments() {
         let pendingSegments = this._pendingSegments;
 
@@ -442,7 +448,7 @@ class MSEController {
                 }
 
                 try {
-                    this._sourceBuffers[type].appendBuffer(segment.data);
+                    this._sourceBuffers[type].appendBuffer(segment.data);//添加视频流
                     this._isBufferFull = false;
                     if (type === 'video' && segment.hasOwnProperty('info')) {
                         this._idrList.appendArray(segment.info.syncPoints);
@@ -473,6 +479,7 @@ class MSEController {
         }
     }
 
+    //视频流打开
     _onSourceOpen() {
         Log.v(this.TAG, 'MediaSource onSourceOpen');
         this._mediaSource.removeEventListener('sourceopen', this.e.onSourceOpen);
@@ -516,6 +523,7 @@ class MSEController {
         return prr.video.length > 0 || prr.audio.length > 0;
     }
 
+    //数据更新监听
     _onSourceBufferUpdateEnd() {
         if (this._requireSetMediaDuration) {
             this._updateMediaSourceDuration();

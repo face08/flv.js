@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+//media数据结构
 class MediaInfo {
 
     constructor() {

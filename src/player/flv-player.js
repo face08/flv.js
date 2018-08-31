@@ -128,6 +128,7 @@ class FlvPlayer {
         this._emitter.removeListener(event, listener);
     }
 
+    //附加到video：供外部调用
     attachMediaElement(mediaElement) {
         this._mediaElement = mediaElement;
         mediaElement.addEventListener('loadedmetadata', this.e.onvLoadedMetadata);

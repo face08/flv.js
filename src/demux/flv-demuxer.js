@@ -128,10 +128,12 @@ class FLVDemuxer {
         this._onDataAvailable = null;
     }
 
+    //解析头部信息
     static probe(buffer) {
         let data = new Uint8Array(buffer);
         let mismatch = {match: false};
 
+        //FLV 判断是否为FLV开始
         if (data[0] !== 0x46 || data[1] !== 0x4C || data[2] !== 0x56 || data[3] !== 0x01) {
             return mismatch;
         }
@@ -254,7 +256,7 @@ class FLVDemuxer {
         return false;
     }
 
-    // function parseChunks(chunk: ArrayBuffer, byteStart: number): number;
+    // 解析数据：function parseChunks(chunk: ArrayBuffer, byteStart: number): number;
     parseChunks(chunk, byteStart) {
         if (!this._onError || !this._onMediaInfo || !this._onTrackMetadata || !this._onDataAvailable) {
             throw new IllegalStateException('Flv: onError & onMediaInfo & onTrackMetadata & onDataAvailable callback must be specified');
@@ -325,6 +327,7 @@ class FLVDemuxer {
 
             let dataOffset = offset + 11;
 
+            //分别解析不同标签
             switch (tagType) {
                 case 8:  // Audio
                     this._parseAudioData(chunk, dataOffset, dataSize, timestamp);
@@ -345,7 +348,7 @@ class FLVDemuxer {
             offset += 11 + dataSize + 4;  // tagBody + dataSize + prevTagSize
         }
 
-        // dispatch parsed frames to consumer (typically, the remuxer)
+        // 发送解析完毕的数据：dispatch parsed frames to consumer (typically, the remuxer)
         if (this._isInitialMetadataDispatched()) {
             if (this._dispatch && (this._audioTrack.length || this._videoTrack.length)) {
                 this._onDataAvailable(this._audioTrack, this._videoTrack);
@@ -804,6 +807,7 @@ class FLVDemuxer {
         return result;
     }
 
+    //解析视频数据
     _parseVideoData(arrayBuffer, dataOffset, dataSize, tagTimestamp, tagPosition) {
         if (dataSize <= 1) {
             Log.w(this.TAG, 'Flv: Invalid video packet, missing VideoData payload!');
@@ -854,6 +858,7 @@ class FLVDemuxer {
         }
     }
 
+    //packetType == 0   解析SPS、PPS
     _parseAVCDecoderConfigurationRecord(arrayBuffer, dataOffset, dataSize) {
         if (dataSize < 7) {
             Log.w(this.TAG, 'Flv: Invalid AVCDecoderConfigurationRecord, lack of data!');
@@ -1022,6 +1027,7 @@ class FLVDemuxer {
         this._onTrackMetadata('video', meta);
     }
 
+    //packetType == 1
     _parseAVCVideoData(arrayBuffer, dataOffset, dataSize, tagTimestamp, tagPosition, frameType, cts) {
         let le = this._littleEndian;
         let v = new DataView(arrayBuffer, dataOffset, dataSize);
@@ -1054,10 +1060,18 @@ class FLVDemuxer {
                 keyframe = true;
             }
 
+            //自定义信息：轨道信息在此
             let data = new Uint8Array(arrayBuffer, dataOffset + offset, lengthSize + naluSize);
             let unit = {type: unitType, data: data};
             units.push(unit);
             length += data.byteLength;
+
+            if(unitType == 6){
+                let bbb =data.slice(6+1+15)
+                let hi = String.fromCharCode.apply(null, bbb);
+                window["onReceiveQuestion"] && onReceiveQuestion(hi);
+                !window["onReceiveQuestion"] && console.log(hi);
+            }
 
             offset += lengthSize + naluSize;
         }

@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+//范围处理
 class RangeSeekHandler {
 
     constructor(zeroStart) {

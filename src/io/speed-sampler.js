@@ -17,6 +17,7 @@
  */
 
 // Utility class to calculate realtime network I/O speed
+//计算网络速度的
 class SpeedSampler {
 
     constructor() {

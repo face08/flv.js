@@ -16,11 +16,12 @@
  * limitations under the License.
  */
 
+ //默认配置文件
 export const defaultConfig = {
     enableWorker: false,
     enableStashBuffer: true,
     stashInitialSize: undefined,
-
+    //是否直播
     isLive: false,
 
     lazyLoad: true,

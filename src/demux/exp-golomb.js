@@ -18,7 +18,7 @@
 
 import {IllegalStateException, InvalidArgumentException} from '../utils/exception.js';
 
-// Exponential-Golomb buffer decoder
+//哥伦布指数解码器 Exponential-Golomb buffer decoder
 class ExpGolomb {
 
     constructor(uint8array) {

@@ -126,6 +126,7 @@ class TransmuxingController {
         this._currentSegmentIndex = segmentIndex;
         let dataSource = this._mediaDataSource.segments[segmentIndex];
 
+        //创建io管理器，并且添加回调
         let ioctl = this._ioctl = new IOController(dataSource, this._config, segmentIndex);
         ioctl.onError = this._onIOException.bind(this);
         ioctl.onSeeked = this._onIOSeeked.bind(this);
@@ -232,6 +233,7 @@ class TransmuxingController {
         return idx;
     }
 
+    //第一次初始化数据
     _onInitChunkArrival(data, byteStart) {
         let probeData = null;
         let consumed = 0;

@@ -41,6 +41,8 @@ export const LoaderErrors = {
  *     function onDataArrival(chunk: ArrayBuffer, byteStart: number, receivedLength: number): void
  *     function onError(errorType: number, errorInfo: {code: number, msg: string}): void
  *     function onComplete(rangeFrom: number, rangeTo: number): void
+ * 
+ *      loader基类，纯接口定义
  */
 export class BaseLoader {
 

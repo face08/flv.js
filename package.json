@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "es6-promise": "^4.1.0",
+    "hexy": "^0.2.11",
     "webworkify": "^1.4.0"
   },
   "devDependencies": {

@@ -17,6 +17,7 @@
  * limitations under the License.
  */
 
+//可以将一个 TypeArray 二进制数组的内容转成 Unicode 码
 function checkContinuation(uint8array, start, checkLength) {
     let array = uint8array;
     if (start + checkLength < array.length) {

@@ -21,6 +21,7 @@ import {createDefaultConfig} from '../config.js';
 
 class Features {
 
+    //是否支持H264
     static supportMSEH264Playback() {
         return window.MediaSource &&
                window.MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E,mp4a.40.2"');
@@ -40,6 +41,7 @@ class Features {
         return loaderType;
     }
 
+    //支持播放类型
     static supportNativeMediaPlayback(mimeType) {
         if (Features.videoElement == undefined) {
             Features.videoElement = window.document.createElement('video');

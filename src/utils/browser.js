@@ -16,6 +16,9 @@
  * limitations under the License.
  */
 
+ /**
+  * 处理浏览器ua的
+  */
 let Browser = {};
 
 function detect() {

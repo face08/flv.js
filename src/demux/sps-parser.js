@@ -18,6 +18,7 @@
 
 import ExpGolomb from './exp-golomb.js';
 
+//SPS解码器
 class SPSParser {
 
     static _ebsp2rbsp(uint8array) {

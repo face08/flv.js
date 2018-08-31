@@ -32,7 +32,7 @@ import {InvalidArgumentException} from './utils/exception.js';
 Polyfill.install();
 
 
-// factory method
+// 创建播放器
 function createPlayer(mediaDataSource, optionalConfig) {
     let mds = mediaDataSource;
     if (mds == null || typeof mds !== 'object') {
