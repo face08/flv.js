@@ -33,6 +33,7 @@ class MP4 {
             vmhd: [], smhd: [], '.mp3': []
         };
 
+        // name字符串的16进制
         for (let name in MP4.types) {
             if (MP4.types.hasOwnProperty(name)) {
                 MP4.types[name] = [
@@ -44,6 +45,7 @@ class MP4 {
             }
         }
 
+        // 常数
         let constants = MP4.constants = {};
 
         constants.FTYP = new Uint8Array([
@@ -118,7 +120,7 @@ class MP4 {
         ]);
     }
 
-    // Generate a box
+    // 写box：Generate a box
     static box(type) {
         let size = 8;
         let result = null;
@@ -146,8 +148,15 @@ class MP4 {
         return result;
     }
 
-    // emit ftyp & moov
+    /**
+     * emit ftyp & moov  mp4入口点
+     * 1：写meta
+     * 2：写track
+     * @param meta
+     * @returns {Uint8Array}
+     */
     static generateInitSegment(meta) {
+        // 写ftyp
         let ftyp = MP4.box(MP4.types.ftyp, MP4.constants.FTYP);
         let moov = MP4.moov(meta);
 
@@ -311,8 +320,8 @@ class MP4 {
             MP4.box(MP4.types.stsc, MP4.constants.STSC),  // Sample-To-Chunk
             MP4.box(MP4.types.stsz, MP4.constants.STSZ),  // Sample size
             MP4.box(MP4.types.stco, MP4.constants.STCO)   // Chunk offset
-        ); 
-        return result; 
+        );
+        return result;
     }
 
     // Sample description box

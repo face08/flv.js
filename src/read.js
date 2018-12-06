@@ -2,6 +2,18 @@
  视音频复用器（muxer）
  复用器（Muxer）和分离器（Demuxer）
 
+ IDR
+ codec 解码器
+
+
+ 也被称为高级视频编码(Advanced Video Coding，简称 AVC
+
+
+
+
+
+
+
  function createPlayer(mediaDataSource, optionalConfig) {
 
     FlvPlayer
@@ -56,5 +68,6 @@
 
 
 
+    io文件夹都是不同的loader（适应不同浏览器和方式）
 
  */

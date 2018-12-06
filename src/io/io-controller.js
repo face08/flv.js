@@ -28,18 +28,23 @@ import RangeSeekHandler from './range-seek-handler.js';
 import ParamSeekHandler from './param-seek-handler.js';
 import {RuntimeException, IllegalStateException, InvalidArgumentException} from '../utils/exception.js';
 
-/**
- * DataSource: {
- *     url: string,
- *     filesize: number,
- *     cors: boolean,
- *     withCredentials: boolean
- * }
- * 
- */
 
-// Manage IO Loaders 管理加载的
+/**
+ * Manage IO Loaders 管理加载的
+ * 负责选择loader，缓存数据
+ *
+ */
 class IOController {
+
+    /**
+     * DataSource: {
+     *     url: string,
+     *     filesize: number,
+     *     cors: boolean,
+     *     withCredentials: boolean
+     * }
+     *
+     */
 
     constructor(dataSource, config, extraData) {
         this.TAG = 'IOController';
@@ -413,6 +418,7 @@ class IOController {
         }
     }
 
+    // 调整缓存大小
     _adjustStashSize(normalized) {
         let stashSizeKB = 0;
 
@@ -438,9 +444,17 @@ class IOController {
             this._expandBuffer(bufferSize);
         }
         this._stashSize = stashSizeKB * 1024;
+
+        // console.log("stash size",this._stashSize)
     }
 
-    //发送数据块消息
+    /**
+     * 跑出数据块消息
+     * @param chunks
+     * @param byteStart
+     * @returns {*}
+     * @private
+     */
     _dispatchChunks(chunks, byteStart) {
         this._currentRange.to = byteStart + chunks.byteLength - 1;
         return this._onDataArrival(chunks, byteStart);
@@ -460,7 +474,13 @@ class IOController {
         }
     }
 
-    //收到数据处理
+    /**
+     * 收到数据处理
+     * @param chunk ：二进制数据
+     * @param byteStart：起始点
+     * @param receivedLength：获取的总长
+     * @private
+     */
     _onLoaderChunkArrival(chunk, byteStart, receivedLength) {
         if (!this._onDataArrival) {
             throw new IllegalStateException('IOController: No existing consumer (onDataArrival) callback!');
@@ -481,6 +501,8 @@ class IOController {
 
         // adjust stash buffer size according to network speed dynamically
         let KBps = this._speedSampler.lastSecondKBps;
+
+        // console.log("speed:",KBps+'KB/s',"block:",chunk.byteLength)
         if (KBps !== 0) {
             let normalized = this._normalizeSpeed(KBps);
             if (this._speedNormalized !== normalized) {
@@ -494,7 +516,7 @@ class IOController {
             if (this._stashUsed === 0) {
                 // dispatch chunk directly to consumer;
                 // check ret value (consumed bytes) and stash unconsumed to stashBuffer
-                let consumed = this._dispatchChunks(chunk, byteStart);
+                let consumed = this._dispatchChunks(chunk, byteStart);                      //抛出数据
                 if (consumed < chunk.byteLength) {  // unconsumed data remain.
                     let remain = chunk.byteLength - consumed;
                     if (remain > this._bufferSize) {

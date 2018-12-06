@@ -80,6 +80,12 @@ class MP4Remuxer {
         this._onMediaSegment = null;
     }
 
+
+    /**
+     * 绑定函数处理
+     * @param producer
+     * @returns {MP4Remuxer}
+     */
     bindDataSource(producer) {
         producer.onDataAvailable = this.remux.bind(this);
         producer.onTrackMetadata = this._onTrackMetadataReceived.bind(this);
@@ -129,7 +135,11 @@ class MP4Remuxer {
         this._audioSegmentInfoList.clear();
     }
 
-    //转化格式
+    /**
+     * mp4入口: 转化格式
+     * @param audioTrack 轨道信息
+     * @param videoTrack
+     */
     remux(audioTrack, videoTrack) {
         if (!this._onMediaSegment) {
             throw new IllegalStateException('MP4Remuxer: onMediaSegment callback must be specificed!');
@@ -141,6 +151,7 @@ class MP4Remuxer {
         this._remuxAudio(audioTrack);
     }
 
+    // 初始化mp4信息
     _onTrackMetadataReceived(type, metadata) {
         let metabox = null;
 
@@ -169,6 +180,8 @@ class MP4Remuxer {
         if (!this._onInitSegment) {
             throw new IllegalStateException('MP4Remuxer: onInitSegment callback must be specified!');
         }
+
+        // 初始化
         this._onInitSegment(type, {
             type: type,
             data: metabox.buffer,
@@ -178,6 +191,7 @@ class MP4Remuxer {
         });
     }
 
+    // 计算dts基本时间
     _calculateDtsBase(audioTrack, videoTrack) {
         if (this._dtsBaseInited) {
             return;
@@ -537,6 +551,7 @@ class MP4Remuxer {
         this._onMediaSegment('audio', segment);
     }
 
+    // 组装video
     _remuxVideo(videoTrack, force) {
         if (this._videoMeta == null) {
             return;
@@ -559,7 +574,7 @@ class MP4Remuxer {
 
         let offset = 8;
         let mdatbox = null;
-        let mdatBytes = 8 + videoTrack.length;
+        let mdatBytes = 8 + videoTrack.length;  // 二进制长度
 
 
         let lastSample = null;
@@ -570,7 +585,7 @@ class MP4Remuxer {
             mdatBytes -= lastSample.length;
         }
 
-        // Insert [stashed lastSample in the previous batch] to the front
+        // 上次存贮的采样插入最前面：Insert [stashed lastSample in the previous batch] to the front
         if (this._videoStashedLastSample != null) {
             let sample = this._videoStashedLastSample;
             this._videoStashedLastSample = null;
@@ -578,7 +593,7 @@ class MP4Remuxer {
             mdatBytes += sample.length;
         }
 
-        // Stash the lastSample of current batch, waiting for next batch
+        // 存储最后一个采样：Stash the lastSample of current batch, waiting for next batch
         if (lastSample != null) {
             this._videoStashedLastSample = lastSample;
         }
@@ -586,13 +601,14 @@ class MP4Remuxer {
 
         let firstSampleOriginalDts = samples[0].dts - this._dtsBase;
 
-        // calculate dtsCorrection
+        // 矫正dts：calculate dtsCorrection
         if (this._videoNextDts) {
             dtsCorrection = firstSampleOriginalDts - this._videoNextDts;
         } else {  // this._videoNextDts == undefined
             if (this._videoSegmentInfoList.isEmpty()) {
                 dtsCorrection = 0;
             } else {
+                // 非直播使用
                 let lastSample = this._videoSegmentInfoList.getLastSampleBefore(firstSampleOriginalDts);
                 if (lastSample != null) {
                     let distance = (firstSampleOriginalDts - (lastSample.originalDts + lastSample.duration));
@@ -625,12 +641,13 @@ class MP4Remuxer {
                 firstPts = pts;
             }
 
-            let sampleDuration = 0;
 
+            // 计算duration
+            let sampleDuration = 0;
             if (i !== samples.length - 1) {
                 let nextDts = samples[i + 1].dts - this._dtsBase - dtsCorrection;
                 sampleDuration = nextDts - dts;
-            } else {  // the last sample
+            } else {  // the last sample  最后一个
                 if (lastSample != null) {  // use stashed sample's dts to calculate sample duration
                     let nextDts = lastSample.dts - this._dtsBase - dtsCorrection;
                     sampleDuration = nextDts - dts;
@@ -641,12 +658,16 @@ class MP4Remuxer {
                 }
             }
 
+
+            // 关键帧
             if (isKeyframe) {
                 let syncPoint = new SampleInfo(dts, pts, sampleDuration, sample.dts, true);
                 syncPoint.fileposition = sample.fileposition;
                 info.appendSyncPoint(syncPoint);
             }
 
+
+            // 存入采样信息
             mp4Samples.push({
                 dts: dts,
                 pts: pts,
@@ -668,7 +689,7 @@ class MP4Remuxer {
 
         //准备写入到mp4的box里
 
-        // allocate mdatbox
+        // 写Mdatbox信息：allocate mdatbox
         mdatbox = new Uint8Array(mdatBytes);
         mdatbox[0] = (mdatBytes >>> 24) & 0xFF;
         mdatbox[1] = (mdatBytes >>> 16) & 0xFF;
@@ -676,17 +697,18 @@ class MP4Remuxer {
         mdatbox[3] = (mdatBytes) & 0xFF;
         mdatbox.set(MP4.types.mdat, 4);
 
-        // Write samples into mdatbox
+        // 合并采样信息:Write samples into mdatbox
         for (let i = 0; i < mp4Samples.length; i++) {
             let units = mp4Samples[i].units;
             while (units.length) {
                 let unit = units.shift();
                 let data = unit.data;
-                mdatbox.set(data, offset);
+                mdatbox.set(data, offset);  // 写入数据
                 offset += data.byteLength;
             }
         }
 
+        // 记录最后一次时间
         let latest = mp4Samples[mp4Samples.length - 1];
         lastDts = latest.dts + latest.duration;
         lastPts = latest.pts + latest.duration;
@@ -709,11 +731,12 @@ class MP4Remuxer {
                                          latest.duration,
                                          latest.originalDts,
                                          latest.isKeyframe);
+        // 非直播
         if (!this._isLive) {
             this._videoSegmentInfoList.append(info);
         }
 
-        track.samples = mp4Samples;
+        track.samples = mp4Samples; // 新的采样信息
         track.sequenceNumber++;
 
         // workaround for chrome < 50: force first sample as a random access point
@@ -724,6 +747,7 @@ class MP4Remuxer {
             flags.isNonSync = 0;
         }
 
+        // 写入moof
         let moofbox = MP4.moof(track, firstDts);
         track.samples = [];
         track.length = 0;
@@ -736,6 +760,7 @@ class MP4Remuxer {
         });
     }
 
+    // 合并moof和mdat
     _mergeBoxes(moof, mdat) {
         let result = new Uint8Array(moof.byteLength + mdat.byteLength);
         result.set(moof, 0);

@@ -47,7 +47,7 @@ class MSEController {
 
         this._mediaSource = null;//MediaSource
         this._mediaSourceObjectURL = null;
-        this._mediaElement = null;
+        this._mediaElement = null;  //video dom元素
 
         this._isBufferFull = false;
         this._hasPendingEos = false;
@@ -55,6 +55,7 @@ class MSEController {
         this._requireSetMediaDuration = false;
         this._pendingMediaDuration = 0;
 
+        // 缓存的initSegment信息
         this._pendingSourceBufferInit = [];
         this._mimeTypes = {
             video: null,
@@ -68,14 +69,20 @@ class MSEController {
             video: null,
             audio: null
         };
+
+        // 存放mediaSegment
         this._pendingSegments = {
             video: [],
             audio: []
         };
+
+        // 要移除的时间段
         this._pendingRemoveRanges = {
             video: [],
             audio: []
         };
+
+        // IDR关键帧数据
         this._idrList = new IDRSampleList();
     }
 
@@ -96,12 +103,15 @@ class MSEController {
         this._emitter.removeListener(event, listener);
     }
 
-    //附加媒体元素：video
+    /**
+     * 附加媒体元素src
+     * @param mediaElement:video
+     */
     attachMediaElement(mediaElement) {
         if (this._mediaSource) {
             throw new IllegalStateException('MediaSource has been attached to an HTMLMediaElement!');
         }
-        let ms = this._mediaSource = new window.MediaSource();
+        let ms = this._mediaSource = new window.MediaSource(); //创建mse
         ms.addEventListener('sourceopen', this.e.onSourceOpen);
         ms.addEventListener('sourceended', this.e.onSourceEnded);
         ms.addEventListener('sourceclose', this.e.onSourceClose);
@@ -167,6 +177,20 @@ class MSEController {
         }
     }
 
+    /**
+     * mp4-remuxer
+     // 初始化
+     this._onInitSegment(type, {
+            type: type,
+            data: metabox.buffer,
+            codec: codec,
+            container: `${type}/${container}`,
+            mediaDuration: metadata.duration  // in timescale 1000 (milliseconds)
+        });
+
+     * @param initSegment
+     * @param deferred
+     */
     appendInitSegment(initSegment, deferred) {
         if (!this._mediaSource || this._mediaSource.readyState !== 'open') {
             // sourcebuffer creation requires mediaSource.readyState === 'open'
@@ -192,7 +216,7 @@ class MSEController {
             if (!this._mimeTypes[is.type]) {  // empty, first chance create sourcebuffer
                 firstInitSegment = true;
                 try {
-                    //添加视频buffer
+                    // 添加视频buffer
                     let sb = this._sourceBuffers[is.type] = this._mediaSource.addSourceBuffer(mimeType);
                     sb.addEventListener('error', this.e.onSourceBufferError);
                     sb.addEventListener('updateend', this.e.onSourceBufferUpdateEnd);
@@ -225,9 +249,13 @@ class MSEController {
         }
     }
 
-    //接受到媒体片段
+    /**
+     * 入口:接受到媒体片段
+     * @param mediaSegment
+     */
     appendMediaSegment(mediaSegment) {
         let ms = mediaSegment;
+        // type:video||audio
         this._pendingSegments[ms.type].push(ms);//放入容器
 
         if (this._config.autoCleanupSourceBuffer && this._needCleanupSourceBuffer()) {
@@ -240,7 +268,9 @@ class MSEController {
         }
     }
 
+    // 设置当前播放时间，
     seek(seconds) {
+        // 移除无用buffer
         // remove all appended buffers
         for (let type in this._sourceBuffers) {
             if (!this._sourceBuffers[type]) {
@@ -327,6 +357,7 @@ class MSEController {
         return this._idrList.getLastSyncPointBeforeDts(dts);
     }
 
+    // 是否需要清除buffer
     _needCleanupSourceBuffer() {
         if (!this._config.autoCleanupSourceBuffer) {
             return false;
@@ -349,6 +380,7 @@ class MSEController {
         return false;
     }
 
+    // 清除过期buffer
     _doCleanupSourceBuffer() {
         let currentTime = this._mediaElement.currentTime;
 
@@ -366,7 +398,7 @@ class MSEController {
                         if (currentTime - start >= this._config.autoCleanupMaxBackwardDuration) {
                             doRemove = true;
                             let removeEnd = currentTime - this._config.autoCleanupMinBackwardDuration;
-                            this._pendingRemoveRanges[type].push({start: start, end: removeEnd});
+                            this._pendingRemoveRanges[type].push({start: start, end: removeEnd});   // 添加清除时间段
                         }
                     } else if (end < currentTime) {
                         doRemove = true;
@@ -381,6 +413,7 @@ class MSEController {
         }
     }
 
+    // 更新ms的duration
     _updateMediaSourceDuration() {
         let sb = this._sourceBuffers;
         if (this._mediaElement.readyState === 0 || this._mediaSource.readyState !== 'open') {
@@ -402,6 +435,7 @@ class MSEController {
         this._pendingMediaDuration = 0;
     }
 
+    // 清除sourceBuffer指定时间buffer
     _doRemoveRanges() {
         for (let type in this._pendingRemoveRanges) {
             if (!this._sourceBuffers[type] || this._sourceBuffers[type].updating) {
@@ -411,12 +445,15 @@ class MSEController {
             let ranges = this._pendingRemoveRanges[type];
             while (ranges.length && !sb.updating) {
                 let range = ranges.shift();
-                sb.remove(range.start, range.end);
+                sb.remove(range.start, range.end); // 移除
             }
         }
     }
 
-    //真实输出到video标签
+    /**
+     * 真实输出到video标签，追加片段
+     * @private
+     */
     _doAppendSegments() {
         let pendingSegments = this._pendingSegments;
 
@@ -428,6 +465,7 @@ class MSEController {
             if (pendingSegments[type].length > 0) {
                 let segment = pendingSegments[type].shift();
 
+                // 调整时间
                 if (segment.timestampOffset) {
                     // For MPEG audio stream in MSE, if unbuffered-seeking occurred
                     // We need explicitly set timestampOffset to the desired point in timeline for mpeg SourceBuffer.
@@ -448,7 +486,7 @@ class MSEController {
                 }
 
                 try {
-                    this._sourceBuffers[type].appendBuffer(segment.data);//添加视频流
+                    this._sourceBuffers[type].appendBuffer(segment.data);//添加视频流！！！！
                     this._isBufferFull = false;
                     if (type === 'video' && segment.hasOwnProperty('info')) {
                         this._idrList.appendArray(segment.info.syncPoints);
@@ -479,7 +517,7 @@ class MSEController {
         }
     }
 
-    //视频流打开
+    //视频流打开，如果有缓存信息，则再次调用
     _onSourceOpen() {
         Log.v(this.TAG, 'MediaSource onSourceOpen');
         this._mediaSource.removeEventListener('sourceopen', this.e.onSourceOpen);

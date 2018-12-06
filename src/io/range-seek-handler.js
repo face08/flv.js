@@ -23,6 +23,12 @@ class RangeSeekHandler {
         this._zeroStart = zeroStart || false;
     }
 
+    /**
+     * 获取指定范围段的视频
+     * @param url
+     * @param range:{from: 0,to: -1}
+     * @returns {{url: *, headers}}
+     */
     getConfig(url, range) {
         let headers = {};
 

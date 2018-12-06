@@ -24,12 +24,19 @@ import TransmuxingEvents from './transmuxing-events.js';
 import TransmuxingWorker from './transmuxing-worker.js';
 import MediaInfo from './media-info.js';
 
+// 复合器 只是封装controller的
 class Transmuxer {
 
+    /**
+     *
+     * @param mediaDataSource  配置
+     * @param config
+     */
     constructor(mediaDataSource, config) {
         this.TAG = 'Transmuxer';
         this._emitter = new EventEmitter();
 
+        // 允许worker模式
         if (config.enableWorker && typeof (Worker) !== 'undefined') {
             try {
                 let work = require('webworkify');
@@ -51,6 +58,7 @@ class Transmuxer {
             this._controller = new TransmuxingController(mediaDataSource, config);
         }
 
+        // 初始化controller
         if (this._controller) {
             let ctl = this._controller;
             ctl.on(TransmuxingEvents.IO_ERROR, this._onIOError.bind(this));

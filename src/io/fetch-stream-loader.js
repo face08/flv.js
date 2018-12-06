@@ -20,12 +20,15 @@ import Log from '../utils/logger.js';
 import Browser from '../utils/browser.js';
 import {BaseLoader, LoaderStatus, LoaderErrors} from './loader.js';
 import {RuntimeException} from '../utils/exception.js';
+import RangeSeekHandler from './range-seek-handler';
 
 /* fetch + stream IO loader. Currently working on chrome 43+.
  * fetch provides a better alternative http API to XMLHttpRequest
  *
  * fetch spec   https://fetch.spec.whatwg.org/
  * stream spec  https://streams.spec.whatwg.org/
+ *
+ * fetch加载器
  */
 class FetchStreamLoader extends BaseLoader {
 
@@ -46,13 +49,14 @@ class FetchStreamLoader extends BaseLoader {
         super('fetch-stream-loader');
         this.TAG = 'FetchStreamLoader';
 
-        this._seekHandler = seekHandler;
+        this._seekHandler = seekHandler;    // RangeSeekHandler
         this._config = config;
         this._needStash = true;
 
         this._requestAbort = false;
         this._contentLength = null;
         this._receivedLength = 0;
+        this._streamReader = null;
     }
 
     destroy() {
@@ -62,10 +66,22 @@ class FetchStreamLoader extends BaseLoader {
         super.destroy();
     }
 
+    reOpen(){
+        if (this._streamReader) {
+            this._streamReader.cancel();
+        }
+        let that = this;
+        setTimeout(function () {
+            that.open(that._dataSource, that._range);
+        },500)
+        // this.open(this._dataSource, this._range);
+    }
+
     //请求flv文件
     open(dataSource, range) {
+        console.log(this)
         this._dataSource = dataSource;
-        this._range = range;
+        this._range = range; //获取范围
 
         let sourceURL = dataSource.url;
         if (this._config.reuseRedirectedURL && dataSource.redirectedURL != undefined) {
@@ -76,6 +92,7 @@ class FetchStreamLoader extends BaseLoader {
 
         let headers = new self.Headers();
 
+        // 设置header头
         if (typeof seekConfig.headers === 'object') {
             let configHeaders = seekConfig.headers;
             for (let key in configHeaders) {
@@ -127,7 +144,7 @@ class FetchStreamLoader extends BaseLoader {
                     }
                 }
 
-                let lengthHeader = res.headers.get('Content-Length');
+                let lengthHeader = res.headers.get('Content-Length');   // 从header获取长度
                 if (lengthHeader != null) {
                     this._contentLength = parseInt(lengthHeader);
                     if (this._contentLength !== 0) {
@@ -137,7 +154,8 @@ class FetchStreamLoader extends BaseLoader {
                     }
                 }
 
-                return this._pump.call(this, res.body.getReader());
+                this._streamReader = res.body.getReader();
+                return this._pump.call(this, this._streamReader);
             } else {
                 this._status = LoaderStatus.kError;
                 if (this._onError) {
@@ -165,7 +183,7 @@ class FetchStreamLoader extends BaseLoader {
         return reader.read().then((result) => {
             // console.log('接受视频流');
             if (result.done) {
-                // First check received length
+                // First check received length 如果接收到长度 < header指定长度
                 if (this._contentLength !== null && this._receivedLength < this._contentLength) {
                     // Report Early-EOF
                     this._status = LoaderStatus.kError;

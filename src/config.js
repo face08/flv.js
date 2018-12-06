@@ -21,25 +21,28 @@ export const defaultConfig = {
     enableWorker: false,
     enableStashBuffer: true,
     stashInitialSize: undefined,
-    //是否直播
-    isLive: false,
 
+    isLive: false,  //是否直播
+
+    //懒加载
     lazyLoad: true,
     lazyLoadMaxDuration: 3 * 60,
-    lazyLoadRecoverDuration: 30,
+    lazyLoadRecoverDuration: 30,    // currentTime的间距时间 秒
     deferLoadAfterSourceOpen: true,
 
-    // autoCleanupSourceBuffer: default as false, leave unspecified
+
+    // 清除buffer
+    // autoCleanupSourceBuffer: default as false, leave unspecified //直播时，自动清除之前buffer
     autoCleanupMaxBackwardDuration: 3 * 60,
     autoCleanupMinBackwardDuration: 2 * 60,
 
     statisticsInfoReportInterval: 600,
 
-    fixAudioTimestampGap: true,
+    fixAudioTimestampGap: true, // 修复声音时间戳空白？
 
-    accurateSeek: false,
-    seekType: 'range',  // [range, param, custom]
-    seekParamStart: 'bstart',
+    accurateSeek: false,    // 准确seek
+    seekType: 'range',  // [range, param, custom]   // 获取类型，加载的时候使用
+    seekParamStart: 'bstart',   //
     seekParamEnd: 'bend',
     rangeLoadZeroStart: false,
     customSeekHandler: undefined,

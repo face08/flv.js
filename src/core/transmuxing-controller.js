@@ -27,9 +27,17 @@ import IOController from '../io/io-controller.js';
 import TransmuxingEvents from './transmuxing-events.js';
 import {LoaderStatus, LoaderErrors} from '../io/loader.js';
 
-// Transmuxing (IO, Demuxing, Remuxing) controller, with multipart support
+/**
+ * Transmuxing (IO, Demuxing, Remuxing) controller, with multipart support
+ * 实例化：数据加载-IOController、数据解析-FLVDemuxer、数据拼装-MP4Remuxer
+ */
 class TransmuxingController {
 
+    /**
+     *
+     * @param mediaDataSource ：配置文件
+     * @param config
+     */
     constructor(mediaDataSource, config) {
         this.TAG = 'TransmuxingController';
         this._emitter = new EventEmitter();
@@ -75,8 +83,8 @@ class TransmuxingController {
         }
 
         this._mediaInfo = null;
-        this._demuxer = null;
-        this._remuxer = null;
+        this._demuxer = null; //解析flv的
+        this._remuxer = null; //拼接mp4的
         this._ioctl = null;
 
         this._pendingSeekTime = null;
@@ -137,7 +145,7 @@ class TransmuxingController {
         if (optionalFrom) {
             this._demuxer.bindDataSource(this._ioctl);
         } else {
-            ioctl.onDataArrival = this._onInitChunkArrival.bind(this);
+            ioctl.onDataArrival = this._onInitChunkArrival.bind(this); // 加载完毕后，二进制数据处理
         }
 
         ioctl.open(optionalFrom);
@@ -162,6 +170,7 @@ class TransmuxingController {
         }
     }
 
+    // 重新开始
     resume() {
         if (this._ioctl && this._ioctl.isPaused()) {
             this._ioctl.resume();
@@ -243,10 +252,10 @@ class TransmuxingController {
             this._demuxer.bindDataSource(this._ioctl);
             this._demuxer.timestampBase = this._mediaDataSource.segments[this._currentSegmentIndex].timestampBase;
 
-            consumed = this._demuxer.parseChunks(data, byteStart);
+            consumed = this._demuxer.parseChunks(data, byteStart);  // flv解析
         } else if ((probeData = FLVDemuxer.probe(data)).match) {
             // Always create new FLVDemuxer
-            this._demuxer = new FLVDemuxer(probeData, this._config);
+            this._demuxer = new FLVDemuxer(probeData, this._config);  //
 
             if (!this._remuxer) {
                 this._remuxer = new MP4Remuxer(this._config);
@@ -269,10 +278,12 @@ class TransmuxingController {
             this._demuxer.onMediaInfo = this._onMediaInfo.bind(this);
             this._demuxer.onMetaDataArrived = this._onMetaDataArrived.bind(this);
 
+            // 绑定flv解析器
             this._remuxer.bindDataSource(this._demuxer
                          .bindDataSource(this._ioctl
             ));
 
+            //绑定回调
             this._remuxer.onInitSegment = this._onRemuxerInitSegmentArrival.bind(this);
             this._remuxer.onMediaSegment = this._onRemuxerMediaSegmentArrival.bind(this);
 
@@ -325,6 +336,7 @@ class TransmuxingController {
         this._remuxer.insertDiscontinuity();
     }
 
+    // IO加载完毕
     _onIOComplete(extraData) {
         let segmentIndex = extraData;
         let nextSegmentIndex = segmentIndex + 1;
@@ -364,6 +376,7 @@ class TransmuxingController {
         this._emitter.emit(TransmuxingEvents.INIT_SEGMENT, type, initSegment);
     }
 
+    // 接受mp4数据
     _onRemuxerMediaSegmentArrival(type, mediaSegment) {
         if (this._pendingSeekTime != null) {
             // Media segments after new-segment cross-seeking should be dropped.

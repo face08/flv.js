@@ -35,6 +35,7 @@ export class SampleInfo {
 export class MediaSegmentInfo {
 
     constructor() {
+        // 属性
         this.beginDts = 0;
         this.endDts = 0;
         this.beginPts = 0;
@@ -78,6 +79,7 @@ export class IDRSampleList {
         Array.prototype.push.apply(list, syncPoints);
     }
 
+    // 查找接近dts点
     getLastSyncPointBeforeDts(dts) {
         if (this._list.length == 0) {
             return null;
@@ -111,10 +113,11 @@ export class IDRSampleList {
 
 }
 
-// Data structure for recording information of media segments in single track.
+// 管理segments：Data structure for recording information of media segments in single track.
 export class MediaSegmentInfoList {
 
     constructor(type) {
+        // 基本属性
         this._type = type;
         this._list = [];
         this._lastAppendLocation = -1;  // cached last insert location
@@ -137,6 +140,7 @@ export class MediaSegmentInfoList {
         this._lastAppendLocation = -1;
     }
 
+    // 查找大于并且接近的index
     _searchNearestSegmentBefore(originalBeginDts) {
         let list = this._list;
         if (list.length === 0) {
@@ -154,6 +158,7 @@ export class MediaSegmentInfoList {
             return idx;
         }
 
+        // 二分查找法
         while (lbound <= ubound) {
             mid = lbound + Math.floor((ubound - lbound) / 2);
             if (mid === last || (originalBeginDts > list[mid].lastSample.originalDts &&
@@ -173,6 +178,7 @@ export class MediaSegmentInfoList {
         return this._searchNearestSegmentBefore(originalBeginDts) + 1;
     }
 
+    // 根据时间插入
     append(mediaSegmentInfo) {
         let list = this._list;
         let msi = mediaSegmentInfo;

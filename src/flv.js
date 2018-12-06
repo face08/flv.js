@@ -34,6 +34,14 @@ Polyfill.install();
 
 // 创建播放器
 function createPlayer(mediaDataSource, optionalConfig) {
+    // {
+    //     hasAudio: true
+    //     hasVideo: true
+    //     isLive: true
+    //     type: "flv"
+    //     url: "http://7203.liveplay.myqcloud.com/live/7203_QCLOUDROOM5b88b7243ae95.flv"
+    //     withCredentials: false 证书
+    // }
     let mds = mediaDataSource;
     if (mds == null || typeof mds !== 'object') {
         throw new InvalidArgumentException('MediaDataSource must be an javascript object!');

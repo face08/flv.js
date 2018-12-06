@@ -25,21 +25,21 @@ import {IllegalStateException} from '../utils/exception.js';
 
 function Swap16(src) {
     return (((src >>> 8) & 0xFF) |
-            ((src & 0xFF) << 8));
+        ((src & 0xFF) << 8));
 }
 
 function Swap32(src) {
     return (((src & 0xFF000000) >>> 24) |
-            ((src & 0x00FF0000) >>> 8)  |
-            ((src & 0x0000FF00) << 8)   |
-            ((src & 0x000000FF) << 24));
+        ((src & 0x00FF0000) >>> 8) |
+        ((src & 0x0000FF00) << 8) |
+        ((src & 0x000000FF) << 24));
 }
 
 function ReadBig32(array, index) {
-    return ((array[index] << 24)     |
-            (array[index + 1] << 16) |
-            (array[index + 2] << 8)  |
-            (array[index + 3]));
+    return ((array[index] << 24) |
+        (array[index + 1] << 16) |
+        (array[index + 2] << 8) |
+        (array[index + 3]));
 }
 
 
@@ -97,12 +97,13 @@ class FLVDemuxer {
 
         this._mpegAudioV10SampleRateTable = [44100, 48000, 32000, 0];
         this._mpegAudioV20SampleRateTable = [22050, 24000, 16000, 0];
-        this._mpegAudioV25SampleRateTable = [11025, 12000, 8000,  0];
+        this._mpegAudioV25SampleRateTable = [11025, 12000, 8000, 0];
 
         this._mpegAudioL1BitRateTable = [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, -1];
-        this._mpegAudioL2BitRateTable = [0, 32, 48, 56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, 384, -1];
-        this._mpegAudioL3BitRateTable = [0, 32, 40, 48,  56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, -1];
+        this._mpegAudioL2BitRateTable = [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, -1];
+        this._mpegAudioL3BitRateTable = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, -1];
 
+        //视频轨道和音频轨道
         this._videoTrack = {type: 'video', id: 1, sequenceNumber: 0, samples: [], length: 0};
         this._audioTrack = {type: 'audio', id: 2, sequenceNumber: 0, samples: [], length: 0};
 
@@ -265,6 +266,7 @@ class FLVDemuxer {
         let offset = 0;
         let le = this._littleEndian;
 
+        //包含头部信息
         if (byteStart === 0) {  // buffer with FLV header
             if (chunk.byteLength > 13) {
                 let probeData = FLVDemuxer.probe(chunk);
@@ -327,7 +329,7 @@ class FLVDemuxer {
 
             let dataOffset = offset + 11;
 
-            //分别解析不同标签
+            //分别解析不同标签****
             switch (tagType) {
                 case 8:  // Audio
                     this._parseAudioData(chunk, dataOffset, dataSize, timestamp);
@@ -348,7 +350,7 @@ class FLVDemuxer {
             offset += 11 + dataSize + 4;  // tagBody + dataSize + prevTagSize
         }
 
-        // 发送解析完毕的数据：dispatch parsed frames to consumer (typically, the remuxer)
+        // 发送解析完毕的数据：dispatch parsed frames to consumer (typically, the remuxer)  轨道信息
         if (this._isInitialMetadataDispatched()) {
             if (this._dispatch && (this._audioTrack.length || this._videoTrack.length)) {
                 this._onDataAvailable(this._audioTrack, this._videoTrack);
@@ -358,6 +360,13 @@ class FLVDemuxer {
         return offset;  // consumed bytes, just equals latest offset index
     }
 
+    /**
+     * 解析script的tag
+     * @param arrayBuffer
+     * @param dataOffset
+     * @param dataSize
+     * @private
+     */
     _parseScriptData(arrayBuffer, dataOffset, dataSize) {
         let scriptData = AMF.parseScriptData(arrayBuffer, dataOffset, dataSize);
 
@@ -472,6 +481,8 @@ class FLVDemuxer {
         let soundSpec = v.getUint8(0);
 
         let soundFormat = soundSpec >>> 4;
+
+        // 只支持下面2种格式
         if (soundFormat !== 2 && soundFormat !== 10) {  // MP3 or AAC
             this._onError(DemuxErrors.CODEC_UNSUPPORTED, 'Flv: Unsupported audio codec idx: ' + soundFormat);
             return;
@@ -537,9 +548,10 @@ class FLVDemuxer {
                 } else {
                     this._audioInitialMetadataDispatched = true;
                 }
+
                 // then notify new metadata
                 this._dispatch = false;
-                this._onTrackMetadata('audio', meta);
+                this._onTrackMetadata('audio', meta); // mp4外部调用
 
                 let mi = this._mediaInfo;
                 mi.audioCodec = meta.originalCodec;
@@ -710,16 +722,16 @@ class FLVDemuxer {
             }
         }
 
-        config[0]  = audioObjectType << 3;
+        config[0] = audioObjectType << 3;
         config[0] |= (samplingIndex & 0x0F) >>> 1;
-        config[1]  = (samplingIndex & 0x0F) << 7;
+        config[1] = (samplingIndex & 0x0F) << 7;
         config[1] |= (channelConfig & 0x0F) << 3;
         if (audioObjectType === 5) {
             config[1] |= ((extensionSamplingIndex & 0x0F) >>> 1);
-            config[2]  = (extensionSamplingIndex & 0x01) << 7;
+            config[2] = (extensionSamplingIndex & 0x01) << 7;
             // extended audio object type: force to 2 (LC-AAC)
             config[2] |= (2 << 2);
-            config[3]  = 0;
+            config[3] = 0;
         }
 
         return {
@@ -822,9 +834,10 @@ class FLVDemuxer {
 
         let spec = (new Uint8Array(arrayBuffer, dataOffset, dataSize))[0];
 
-        let frameType = (spec & 240) >>> 4;
-        let codecId = spec & 15;
+        let frameType = (spec & 240) >>> 4; // 240==0xF0
+        let codecId = spec & 15;    // 15==0x0F
 
+        //只处理AVC格式
         if (codecId !== 7) {
             this._onError(DemuxErrors.CODEC_UNSUPPORTED, `Flv: Unsupported codec in video frame: ${codecId}`);
             return;
@@ -833,6 +846,7 @@ class FLVDemuxer {
         this._parseAVCVideoPacket(arrayBuffer, dataOffset + 1, dataSize - 1, tagTimestamp, tagPosition, frameType);
     }
 
+    // 解析avc格式
     _parseAVCVideoPacket(arrayBuffer, dataOffset, dataSize, tagTimestamp, tagPosition, frameType) {
         if (dataSize < 4) {
             Log.w(this.TAG, 'Flv: Invalid AVC packet, missing AVCPacketType or/and CompositionTime');
@@ -846,9 +860,9 @@ class FLVDemuxer {
         let cts_unsigned = v.getUint32(0, !le) & 0x00FFFFFF;
         let cts = (cts_unsigned << 8) >> 8;  // convert to 24-bit signed int
 
-        if (packetType === 0) {  // AVCDecoderConfigurationRecord
+        if (packetType === 0) {  // AVCDecoderConfigurationRecord. AVC序列头
             this._parseAVCDecoderConfigurationRecord(arrayBuffer, dataOffset + 4, dataSize - 4);
-        } else if (packetType === 1) {  // One or more Nalus
+        } else if (packetType === 1) {  // One or more Nalus. AVC NALU单元
             this._parseAVCVideoData(arrayBuffer, dataOffset + 4, dataSize - 4, tagTimestamp, tagPosition, frameType, cts);
         } else if (packetType === 2) {
             // empty, AVC end of sequence
@@ -913,6 +927,7 @@ class FLVDemuxer {
 
         let offset = 6;
 
+        // 读取sps
         for (let i = 0; i < spsCount; i++) {
             let len = v.getUint16(offset, !le);  // sequenceParameterSetLength
             offset += 2;
@@ -988,6 +1003,7 @@ class FLVDemuxer {
             }
         }
 
+        // 解析pps
         let ppsCount = v.getUint8(offset);  // numOfPictureParameterSets
         if (ppsCount === 0) {
             this._onError(DemuxErrors.FORMAT_ERROR, 'Flv: Invalid AVCDecoderConfigurationRecord: No PPS');
@@ -1024,7 +1040,7 @@ class FLVDemuxer {
         }
         // notify new metadata
         this._dispatch = false;
-        this._onTrackMetadata('video', meta);
+        this._onTrackMetadata('video', meta);   // 媒体信息，供mp4使用
     }
 
     //packetType == 1
@@ -1039,6 +1055,7 @@ class FLVDemuxer {
         let dts = this._timestampBase + tagTimestamp;
         let keyframe = (frameType === 1);  // from FLV Frame Type constants
 
+        // console.log(cts, dts);
         while (offset < dataSize) {
             if (offset + 4 >= dataSize) {
                 Log.w(this.TAG, `Malformed Nalu near timestamp ${dts}, offset = ${offset}, dataSize = ${dataSize}`);
@@ -1062,15 +1079,16 @@ class FLVDemuxer {
 
             //自定义信息：轨道信息在此
             let data = new Uint8Array(arrayBuffer, dataOffset + offset, lengthSize + naluSize);
-            let unit = {type: unitType, data: data};
+            let unit = {type: unitType, data: data};    // 类型、数据
             units.push(unit);
             length += data.byteLength;
 
-            if(unitType == 6){
-                let bbb =data.slice(6+1+15)
+
+            if (unitType == 6) {
+                let bbb = data.slice(6 + 1 + 15);
                 let hi = String.fromCharCode.apply(null, bbb);
-                window["onReceiveQuestion"] && onReceiveQuestion(hi);
-                !window["onReceiveQuestion"] && console.log(hi);
+                window['onReceiveQuestion'] && window['onReceiveQuestion'](hi);
+                // !window['onReceiveQuestion'] && console.log(hi);
             }
 
             offset += lengthSize + naluSize;
@@ -1089,8 +1107,8 @@ class FLVDemuxer {
             if (keyframe) {
                 avcSample.fileposition = tagPosition;
             }
-            track.samples.push(avcSample);
-            track.length += length;
+            track.samples.push(avcSample);  // 采样信息
+            track.length += length; // 二进制长度
         }
     }
 

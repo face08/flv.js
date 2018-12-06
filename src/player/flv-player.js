@@ -64,13 +64,13 @@ class FlvPlayer {
 
         this._pendingSeekTime = null;  // in seconds
         this._requestSetTime = false;
-        this._seekpointRecord = null;
+        this._seekpointRecord = null;   // 跳跃的时间记录
         this._progressChecker = null;
 
-        this._mediaDataSource = mediaDataSource;
-        this._mediaElement = null;
-        this._msectl = null;
-        this._transmuxer = null;
+        this._mediaDataSource = mediaDataSource;    // 用户配置
+        this._mediaElement = null;  //dom元素video
+        this._msectl = null;    // mse
+        this._transmuxer = null;// Transmuxer
 
         this._mseSourceOpened = false;
         this._hasPendingLoad = false;
@@ -128,14 +128,34 @@ class FlvPlayer {
         this._emitter.removeListener(event, listener);
     }
 
-    //附加到video：供外部调用
+    test(){
+        if(!this._mediaElement|| this._mediaElement.buffered.length === 0)
+            return;
+        console.log(this._mediaElement.buffered.length,
+            this._mediaElement.currentTime,
+            this._mediaElement.buffered.end(0))
+
+        if(this._mediaElement.buffered.end(0)-this._mediaElement.currentTime>2){
+            follow()
+        }
+    }
+
+    /**
+     * 附加到video：供外部调用
+     * @param mediaElement  video的dom元素
+     */
     attachMediaElement(mediaElement) {
         this._mediaElement = mediaElement;
+        // 事件参考：http://www.w3school.com.cn/tags/av_event_loadedmetadata.asp
+        // https://developer.mozilla.org/zh-CN/docs/Web/Events
         mediaElement.addEventListener('loadedmetadata', this.e.onvLoadedMetadata);
-        mediaElement.addEventListener('seeking', this.e.onvSeeking);
+        mediaElement.addEventListener('seeking', this.e.onvSeeking);    //加载中
         mediaElement.addEventListener('canplay', this.e.onvCanPlay);
-        mediaElement.addEventListener('stalled', this.e.onvStalled);
-        mediaElement.addEventListener('progress', this.e.onvProgress);
+        mediaElement.addEventListener('stalled', this.e.onvStalled);    //止步不前
+        mediaElement.addEventListener('progress', this.e.onvProgress);  //播放中？
+
+        this.test = this.test.bind(this)
+        // mediaElement.addEventListener('timeupdate', this.test);  //播放中？
 
         this._msectl = new MSEController(this._config);
 
@@ -169,6 +189,7 @@ class FlvPlayer {
         }
     }
 
+    //移除vido监听
     detachMediaElement() {
         if (this._mediaElement) {
             this._msectl.detachMediaElement();
@@ -185,6 +206,7 @@ class FlvPlayer {
         }
     }
 
+    // 开始加载
     load() {
         if (!this._mediaElement) {
             throw new IllegalStateException('HTMLMediaElement must be attached before load()!');
@@ -209,13 +231,16 @@ class FlvPlayer {
 
         this._transmuxer = new Transmuxer(this._mediaDataSource, this._config);
 
+        // 初始化
         this._transmuxer.on(TransmuxingEvents.INIT_SEGMENT, (type, is) => {
             this._msectl.appendInitSegment(is);
         });
+
+        // 监听片段（segment）消息，并且传给mse
         this._transmuxer.on(TransmuxingEvents.MEDIA_SEGMENT, (type, ms) => {
             this._msectl.appendMediaSegment(ms);
 
-            // lazyLoad check
+            // lazyLoad check：懒加载检查，非直播
             if (this._config.lazyLoad && !this._config.isLive) {
                 let currentTime = this._mediaElement.currentTime;
                 if (ms.info.endDts >= (currentTime + this._config.lazyLoadMaxDuration) * 1000) {
@@ -317,6 +342,7 @@ class FlvPlayer {
         return 0;
     }
 
+    // 设置当前时间
     set currentTime(seconds) {
         if (this._mediaElement) {
             this._internalSeek(seconds);
@@ -410,11 +436,12 @@ class FlvPlayer {
         }
     }
 
+    // 检查是否需要重新开始
     _checkProgressAndResume() {
         let currentTime = this._mediaElement.currentTime;
         let buffered = this._mediaElement.buffered;
 
-        let needResume = false;
+        let needResume = false; // 是否需要重新开始
 
         for (let i = 0; i < buffered.length; i++) {
             let from = buffered.start(i);
@@ -437,6 +464,7 @@ class FlvPlayer {
         }
     }
 
+    // 数据是否已经缓存
     _isTimepointBuffered(seconds) {
         let buffered = this._mediaElement.buffered;
 
@@ -450,6 +478,8 @@ class FlvPlayer {
         return false;
     }
 
+
+    // 查询指定时间附近关键帧
     _internalSeek(seconds) {
         let directSeek = this._isTimepointBuffered(seconds);
 
@@ -469,10 +499,12 @@ class FlvPlayer {
             this._requestSetTime = true;
             this._mediaElement.currentTime = directSeekBeginTime;
         }  else if (directSeek) {  // buffered position
+            // 不用寻找关键帧
             if (!this._alwaysSeekKeyframe) {
                 this._requestSetTime = true;
                 this._mediaElement.currentTime = seconds;
             } else {
+                // 寻找关键帧
                 let idr = this._msectl.getNearestKeyframe(Math.floor(seconds * 1000));
                 this._requestSetTime = true;
                 if (idr != null) {
@@ -500,6 +532,7 @@ class FlvPlayer {
         }
     }
 
+    // 检查是否需要跳跃
     _checkAndApplyUnbufferedSeekpoint() {
         if (this._seekpointRecord) {
             if (this._seekpointRecord.recordTime <= this._now() - 100) {
@@ -549,6 +582,7 @@ class FlvPlayer {
         }
     }
 
+    // 跳跃操作时
     _onvSeeking(e) {  // handle seeking request from browser's progress bar
         let target = this._mediaElement.currentTime;
         let buffered = this._mediaElement.buffered;

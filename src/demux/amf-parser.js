@@ -26,6 +26,10 @@ let le = (function () {
     return (new Int16Array(buf))[0] === 256;  // platform-spec read, if equal then LE
 })();
 
+
+/**
+ *  负责解析Flv的script标签tag
+ */
 class AMF {
 
     static parseScriptData(arrayBuffer, dataOffset, dataSize) {
